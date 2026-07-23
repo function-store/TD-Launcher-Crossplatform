@@ -459,6 +459,105 @@ textarea:focus {
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.readme-body .markdown {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: normal;
+  color: var(--text);
+}
+
+.readme-body .markdown > :first-child {
+  margin-top: 0;
+}
+
+.readme-body .markdown h1,
+.readme-body .markdown h2,
+.readme-body .markdown h3,
+.readme-body .markdown h4 {
+  color: var(--accent);
+  font-weight: 650;
+  margin: 0.85em 0 0.35em;
+  line-height: 1.25;
+}
+
+.readme-body .markdown h1 { font-size: 1.35em; }
+.readme-body .markdown h2 { font-size: 1.2em; }
+.readme-body .markdown h3 { font-size: 1.08em; }
+
+.readme-body .markdown p {
+  margin: 0.45em 0;
+}
+
+.readme-body .markdown ul,
+.readme-body .markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+
+.readme-body .markdown li {
+  margin: 0.15em 0;
+}
+
+.readme-body .markdown a {
+  color: var(--blue);
+}
+
+.readme-body .markdown code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.readme-body .markdown pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  overflow: auto;
+}
+
+.readme-body .markdown pre code {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.readme-body .markdown blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.8em;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+
+.readme-body .markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+.readme-body .markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6em 0;
+  font-size: 12px;
+}
+
+.readme-body .markdown th,
+.readme-body .markdown td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.readme-body .markdown th {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .readme-footer {
@@ -489,10 +588,75 @@ textarea:focus {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
+.modal.modal-wide {
+  width: min(480px, 94vw);
+}
+
 .modal h2 {
   margin: 0 0 10px;
   font-size: 16px;
   color: var(--accent);
+}
+
+.modal h3.help-section {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.modal h3.help-section:first-of-type {
+  margin-top: 4px;
+}
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.help-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 4px 8px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-table td {
+  padding: 4px 10px 4px 0;
+  vertical-align: top;
+  color: var(--text);
+}
+
+.help-table td:first-child {
+  width: 140px;
+  white-space: nowrap;
+}
+
+.help-table tr.help-cat td {
+  padding-top: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: none;
+}
+
+.help-tip {
+  color: var(--text-dim) !important;
+  font-size: 12px;
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.modal code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
 }
 
 .modal p,

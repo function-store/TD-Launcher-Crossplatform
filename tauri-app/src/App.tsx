@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -501,11 +502,12 @@ export default function App() {
         return;
       }
 
-      if (meta && e.key >= "1" && e.key <= "9" && tab === "templates") {
+      if (meta && e.key >= "1" && e.key <= "9") {
         const idx = Number(e.key);
-        // 1 = Default, 2+ = templates
         const item = templateItems[idx - 1];
         if (item && !item.missing) {
+          e.preventDefault();
+          setTab("templates");
           setSelectedPath(item.path);
           setTimeout(() => void doLaunch(true), 50);
         }
@@ -840,8 +842,12 @@ export default function App() {
                   onChange={(e) => setReadmeDraft(e.target.value)}
                   spellCheck={false}
                 />
+              ) : readme.content ? (
+                <div className="markdown">
+                  <ReactMarkdown>{readme.content}</ReactMarkdown>
+                </div>
               ) : (
-                readme.content || " "
+                <span className="hint"> </span>
               )}
             </div>
             <div className="readme-footer">
@@ -932,22 +938,100 @@ export default function App() {
       )}
 
       {modal === "help" && (
-        <Modal title="Help" onClose={() => setModal(null)}>
-          <p>
-            <span className="kbd">Tab</span> switch lists · <span className="kbd">↑/↓</span> or{" "}
-            <span className="kbd">W/S</span> navigate · <span className="kbd">Space</span> toggle
-            focus · <span className="kbd">Enter</span> launch · <span className="kbd">Esc</span> quit
+        <Modal title="Help" onClose={() => setModal(null)} wide>
+          <h3 className="help-section">Keyboard Shortcuts</h3>
+          <table className="help-table">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                {
+                  cat: "Navigation",
+                  bindings: [
+                    ["Tab", "Switch tabs (Recent / Templates)"],
+                    ["Up / W", "Select previous file"],
+                    ["Down / S", "Select next file"],
+                    ["Space", "Toggle focus: File List / Versions"],
+                    ["Enter", "Launch selected project"],
+                    ["Esc", "Quit"],
+                  ],
+                },
+                {
+                  cat: "Search",
+                  bindings: [
+                    [`${mod}+F`, "Open / close search"],
+                    ["Esc", "Clear search and close"],
+                    ["Enter", "Close search (keep filter)"],
+                    ["Up / Down", "Navigate filtered list"],
+                  ],
+                },
+                {
+                  cat: "Interface",
+                  bindings: [
+                    ["V", "Toggle collapse versions"],
+                    ["C", "Toggle icons"],
+                    ["R", "Toggle TouchPlayer"],
+                    ["F", "Open file's folder"],
+                    ["E", "Toggle info panel"],
+                    [`${mod}+E`, "Edit README"],
+                  ],
+                },
+                {
+                  cat: "File Management",
+                  bindings: [
+                    ["Del / Backspace", "Remove selected file"],
+                    [`${mod}+Up/Down`, "Reorder templates"],
+                    [`${mod}+S`, "Save README"],
+                  ],
+                },
+                {
+                  cat: "Quick Launch",
+                  bindings: [
+                    [`${mod}+D`, "Launch TD (default startup)"],
+                    [`${mod}+1–9`, "Launch template by position"],
+                  ],
+                },
+              ].flatMap(({ cat, bindings }) => [
+                <tr key={`cat-${cat}`} className="help-cat">
+                  <td colSpan={2}>{cat}</td>
+                </tr>,
+                ...bindings.map(([key, action]) => (
+                  <tr key={`${cat}-${key}`}>
+                    <td>
+                      <span className="kbd">{key}</span>
+                    </td>
+                    <td>{action}</td>
+                  </tr>
+                )),
+              ])}
+            </tbody>
+          </table>
+
+          <p className="help-tip">
+            {isMac
+              ? "On macOS, the companion utility TOX is needed to sync recent files from TouchDesigner."
+              : "Recent files are read directly from the Windows Registry — no setup needed."}
           </p>
-          <p>
-            <span className="kbd">{mod}+F</span> search · <span className="kbd">V</span> collapse ·{" "}
-            <span className="kbd">C</span> icons · <span className="kbd">E</span> info ·{" "}
-            <span className="kbd">R</span> TouchPlayer · <span className="kbd">{mod}+1–9</span> quick
-            template
+          <p className="help-tip">
+            Use the TouchPlayer checkbox in the version panel to launch projects in TouchPlayer instead.
           </p>
-          <p>
-            Companion <strong>TDLauncherPlusUtility.tox</strong> syncs macOS recents and generates
-            project icons. Add it to your default startup file.
+
+          <h3 className="help-section">
+            Companion Utility TOX {isMac ? "(recommended)" : "(optional)"}
+          </h3>
+          <p className="help-tip">
+            {isMac
+              ? "Syncs recent files from TouchDesigner and auto-generates project icons from /perform."
+              : "Auto-generates project icons from /perform when you save. Not needed for recent files."}
           </p>
+          <p className="help-tip">
+            Add <code>TDLauncherPlusUtility.tox</code> to your default startup file.
+          </p>
+
           <div className="actions">
             <button className="primary" onClick={() => setModal(null)}>
               Close
@@ -1130,14 +1214,16 @@ function Modal({
   title,
   children,
   onClose,
+  wide,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal ${wide ? "modal-wide" : ""}`} onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {children}
       </div>
