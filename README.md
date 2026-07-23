@@ -93,7 +93,7 @@ Launching the app directly opens the project dashboard. Here you can browse your
 You can also drag and drop `.toe` files directly onto the TD Launcher Plus app icon.
 
 ### TouchDesigner Utility Component
-A companion TouchDesigner component (`TDLauncherPlusUtility.tox`) is included that integrates with TD Launcher Plus. Add this to your default startup file.
+A companion TouchDesigner component — download [`TDLauncherPlusUtility.tox`](https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox) from [Releases](https://github.com/function-store/TD-Launcher-Plus/releases) — integrates with TD Launcher Plus. Add it to your default startup file.
 
 **Why use it?**
 - **macOS (required for recents):** Due to macOS sandboxing restrictions, the packaged app cannot read TouchDesigner's native recent files. The utility syncs your recent files to the launcher's config so they appear in the Recent Files tab. It also auto-generates project icons.
@@ -105,8 +105,8 @@ A companion TouchDesigner component (`TDLauncherPlusUtility.tox`) is included th
 - **Quick access:** Open TD Launcher Plus directly from within TouchDesigner
 
 **Installation:**
-1. Import `TDLauncherPlusUtility.tox` into your project
-2. Or better: Add it to your default startup `.toe` file (or one of the templates ;)) so it's always present --- it is very lightweight and does only minor file operations on init and save.
+1. Download [`TDLauncherPlusUtility.tox`](https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox) from Releases
+2. Import it into your project — or better, add it to your default startup `.toe` (or one of your templates) so it's always present. It is very lightweight and only does minor file operations on init and save.
 3. The utility runs automatically in the background
 
 ### Keyboard Shortcuts
@@ -157,7 +157,7 @@ TD Launcher Plus keeps track of recently opened projects. Files are added to the
 
 **Native Recent Files Discovery:**
 - **Windows:** Reads recent files directly from the Windows Registry (`HKCU\Software\Derivative\recent files`) — no setup needed. Any file you open in TouchDesigner will automatically appear in TD Launcher Plus.
-- **macOS:** Due to macOS sandboxing restrictions, the packaged app cannot read TouchDesigner's native recent files. Install the **[TDLauncherPlusUtility.tox](#touchdesigner-utility-component-recommended-on-macos)** companion component in your startup `.toe` to sync recent files from TouchDesigner.
+- **macOS:** Due to macOS sandboxing restrictions, the packaged app cannot read TouchDesigner's native recent files. Install [`TDLauncherPlusUtility.tox`](https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox) in your startup `.toe` to sync recent files from TouchDesigner.
 
 **Color Coding:**
 - **Vibrant Green:** **Active Session** — The file you currently have selected or just launched.
@@ -188,7 +188,7 @@ Save frequently-used project templates for quick access. Templates appear in a s
 Quickly find projects across both Recent Files and Templates using the built-in search. Click the **"Search..."** button or press **Ctrl+F** (Cmd+F on Mac) to open the search field. Results filter in real time as you type, matching against file names and paths. Supports wildcard patterns: `*` matches any characters and `?` matches a single character (e.g., `vj*live` or `project?.toe`). Press **Escape** to clear the search, or **Enter** to close the search field while keeping the filter active. Use **Up/Down** arrows to navigate the filtered list without leaving the search field.
 
 ### Project Icons
-TD Launcher Plus can display project icons next to each file. Enable with the **"Show Icons"** checkbox. Icons are automatically generated when you save a project in TouchDesigner, provided the `TDLauncherPlusUtility.tox` component is present in that project (or your startup file).
+TD Launcher Plus can display project icons next to each file. Enable with the **"Show Icons"** checkbox. Icons are automatically generated when you save a project in TouchDesigner, provided [`TDLauncherPlusUtility.tox`](https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox) is present in that project (or your startup file).
 
 By default, the utility takes a screenshot of the `/perform` window on every save and writes it as `<projectname>_icon_temp.png` next to the `.toe` file. This means each project gets an up-to-date visual thumbnail automatically. The target operator and behavior can be customized via the utility's custom parameters — for example, you can point it at a different operator path if your project uses a dedicated preview/output node instead of `/perform`.
 

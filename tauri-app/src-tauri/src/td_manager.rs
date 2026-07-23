@@ -64,7 +64,9 @@ impl TDManager {
         }
     }
 
-    pub fn parse_version(version_str: &str) -> (i64, i64) {
+    /// Parse version into (year, build, branch). Branch defaults to 0 when absent.
+    /// Accepts `TouchDesigner.2026.21212`, `TouchPlayer.2026.21212.2`, or `2026.21212.2`.
+    pub fn parse_version(version_str: &str) -> (i64, i64, i64) {
         let mut s = version_str;
         for prefix in ["TouchDesigner.", "TouchPlayer."] {
             if let Some(rest) = s.strip_prefix(prefix) {
@@ -75,11 +77,18 @@ impl TDManager {
         let parts: Vec<&str> = s.split('.').collect();
         let year = parts.first().and_then(|p| p.parse().ok()).unwrap_or(-1);
         let build = parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(-1);
-        (year, build)
+        let branch = parts.get(2).and_then(|p| p.parse().ok()).unwrap_or(0);
+        (year, build, branch)
     }
 
     pub fn is_version_installed(&self, version: &str) -> bool {
-        self.versions.contains_key(version)
+        if self.versions.contains_key(version) {
+            return true;
+        }
+        let target = Self::parse_version(version);
+        self.versions
+            .keys()
+            .any(|k| Self::parse_version(k) == target)
     }
 
     pub fn is_player_installed(&self, version: &str) -> bool {
@@ -97,7 +106,12 @@ impl TDManager {
                 .find(|v| Self::parse_version(&v.key) == target)
                 .or_else(|| self.players.get(version))
         } else {
-            self.versions.get(version)
+            self.versions.get(version).or_else(|| {
+                let target = Self::parse_version(version);
+                self.versions
+                    .values()
+                    .find(|v| Self::parse_version(&v.key) == target)
+            })
         }
     }
 
@@ -176,6 +190,12 @@ impl TDManager {
         let product = parts[0];
         let year = parts[1];
         let build = parts[2];
+        // Optional experimental/branch suffix: TouchDesigner.2026.21212.2
+        let branch = parts.get(3).filter(|p| p.chars().all(|c| c.is_ascii_digit()));
+        let version_core = match branch {
+            Some(b) => format!("{year}.{build}.{b}"),
+            None => format!("{year}.{build}"),
+        };
 
         #[cfg(windows)]
         let (extension, arch_suffix) = (".exe", "");
@@ -211,7 +231,7 @@ impl TDManager {
             "TouchDesigner"
         };
         Some(format!(
-            "https://download.derivative.ca/{url_product}.{year}.{build}{arch_suffix}{extension}"
+            "https://download.derivative.ca/{url_product}.{version_core}{arch_suffix}{extension}"
         ))
     }
 
@@ -324,7 +344,7 @@ fn query_windows_registry(product: &str) -> HashMap<String, VersionInfo> {
     use winreg::RegKey;
 
     let mut td_dict = HashMap::new();
-    let ver_re = Regex::new(r"^\d{4}\.\d+$").unwrap();
+    let ver_re = Regex::new(r"^\d{4}\.\d+(?:\.\d+)?$").unwrap();
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let key_path = format!(r"SOFTWARE\Derivative\{product}");
@@ -476,9 +496,17 @@ fn query_mac_applications(product: &str) -> HashMap<String, VersionInfo> {
         if parts.len() < 2 {
             continue;
         }
-        let year = parts[0];
-        let build = parts[1];
-        let td_key = format!("{product}.{year}.{build}");
+        // Keep full year.build[.branch] from CFBundleVersion
+        let version_core = parts
+            .iter()
+            .take_while(|p| p.chars().all(|c| c.is_ascii_digit()))
+            .copied()
+            .collect::<Vec<_>>()
+            .join(".");
+        if version_core.is_empty() {
+            continue;
+        }
+        let td_key = format!("{product}.{version_core}");
         let executable = app_path
             .join("Contents/MacOS")
             .join(product)

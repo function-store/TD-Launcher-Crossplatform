@@ -2,8 +2,8 @@
 
 use crate::config::{AppConfig, ConfigManager, PrefsUpdate, RecentEntry};
 use crate::project::{
-    get_file_meta, get_readme_info, icon_data_url, open_in_file_manager, save_readme, FileMeta,
-    ReadmeInfo,
+    get_file_meta, get_files_meta, get_readme_info, icon_data_url, open_in_file_manager, save_readme,
+    FileMeta, ReadmeInfo,
 };
 use crate::td_manager::{DiscoverResult, TDManager, DEFAULT_TEMPLATE};
 use serde::Serialize;
@@ -352,6 +352,11 @@ pub fn rediscover_and_check(
 #[tauri::command]
 pub fn get_file_meta_cmd(path: String) -> FileMeta {
     get_file_meta(&path)
+}
+
+#[tauri::command]
+pub fn get_files_meta_cmd(paths: Vec<String>) -> Vec<FileMeta> {
+    get_files_meta(&paths)
 }
 
 #[tauri::command]

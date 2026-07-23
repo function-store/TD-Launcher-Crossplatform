@@ -56,6 +56,7 @@ export const api = {
   rediscoverAndCheck: (version: string, useTouchplayer: boolean) =>
     invoke<boolean>("rediscover_and_check", { version, useTouchplayer }),
   getFileMeta: (path: string) => invoke<FileMeta>("get_file_meta_cmd", { path }),
+  getFilesMeta: (paths: string[]) => invoke<FileMeta[]>("get_files_meta_cmd", { paths }),
   quitApp: () => invoke<void>("quit_app"),
   writeTempHtml: (content: string) => invoke<string>("write_temp_html", { content }),
 };

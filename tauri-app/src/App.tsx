@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -19,11 +19,16 @@ import {
   buildTemplateItems,
   dirname,
   displayBuildInfo,
+  findMatchingVersionKey,
+  plainSummary,
+  versionNumeric,
 } from "./utils";
 
 type Modal = "settings" | "help" | "about" | "firstrun" | "install" | "clear" | "remove" | null;
 
-const COUNTDOWN_SECS = 5;
+const COUNTDOWN_SECS = 5; // matches original _update_countdown (hardcoded 5s)
+const UTILITY_TOX_URL =
+  "https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -58,52 +63,61 @@ export default function App() {
   const [maxRecentDraft, setMaxRecentDraft] = useState(100);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const selectedFileRef = useRef<HTMLDivElement | null>(null);
   const analysisId = useRef(0);
+  const versionCache = useRef(new Map<string, string | null>());
   const countdownTimer = useRef<number | null>(null);
   const installPoll = useRef<number | null>(null);
+  const iconsRef = useRef<Record<string, string>>({});
 
   const isMac = platform === "macos";
   const mod = isMac ? "⌘" : "Ctrl";
 
-  const refreshLists = useCallback(async (cfg?: AppConfig) => {
+  useEffect(() => {
+    iconsRef.current = icons;
+  }, [icons]);
+
+  const refreshLists = useCallback(async (cfg?: AppConfig, opts?: { rediscover?: boolean }) => {
     const c = cfg ?? (await api.getConfig());
     setConfig(c);
     setMaxRecentDraft(c.max_recent_files);
-    const [r, t, d] = await Promise.all([
+
+    const rediscover = opts?.rediscover ?? true;
+    const listTasks: [Promise<RecentEntry[]>, Promise<string[]>, Promise<DiscoverResult>?] = [
       api.getRecents(true),
       api.getTemplates(),
-      api.discoverVersions(),
+      rediscover ? api.discoverVersions() : undefined,
+    ];
+
+    const [r, t, d] = await Promise.all([
+      listTasks[0],
+      listTasks[1],
+      listTasks[2] ?? Promise.resolve(null),
     ]);
     setRecents(r);
     setTemplates(t);
-    setDiscover(d);
+    if (d) setDiscover(d);
 
     const paths = [...r.map((x) => x.path), ...t];
+    const metas = paths.length ? await api.getFilesMeta(paths) : [];
     const nextMeta: Record<string, { exists: boolean; mtime: string }> = {};
-    await Promise.all(
-      paths.map(async (p) => {
-        try {
-          const m = await api.getFileMeta(p);
-          nextMeta[p] = { exists: m.exists, mtime: m.mtime };
-        } catch {
-          nextMeta[p] = { exists: false, mtime: "" };
-        }
-      }),
-    );
+    paths.forEach((p, i) => {
+      nextMeta[p] = { exists: metas[i]?.exists ?? false, mtime: metas[i]?.mtime ?? "" };
+    });
     setMeta(nextMeta);
 
     if (c.show_icons) {
-      const nextIcons: Record<string, string> = {};
-      await Promise.all(
-        paths.slice(0, 40).map(async (p) => {
-          if (!nextMeta[p]?.exists) return;
-          const url = await api.getIconDataUrl(p);
-          if (url) nextIcons[p] = url;
-        }),
-      );
-      setIcons(nextIcons);
-    } else {
-      setIcons({});
+      const nextIcons = { ...iconsRef.current };
+      const need = paths.filter((p) => nextMeta[p]?.exists && !nextIcons[p]).slice(0, 40);
+      if (need.length) {
+        await Promise.all(
+          need.map(async (p) => {
+            const url = await api.getIconDataUrl(p);
+            if (url) nextIcons[p] = url;
+          }),
+        );
+        setIcons(nextIcons);
+      }
     }
   }, []);
 
@@ -115,16 +129,53 @@ export default function App() {
       const cli = await api.getCliToe();
       const cfg = await api.getConfig();
       await refreshLists(cfg);
+
       if (cli) {
+        // File-open mode: analyze/select the .toe, focus versions, auto-countdown
         setCliMode(true);
         setSelectedPath(cli);
         setActiveManual(cli);
         setFocus("versions");
         setTab("recent");
+        // Warm meta for CLI file (may not be in recents yet)
+        try {
+          const m = await api.getFileMeta(cli);
+          setMeta((prev) => ({ ...prev, [cli]: { exists: m.exists, mtime: m.mtime } }));
+        } catch {
+          /* ignore */
+        }
+      } else {
+        // Dashboard mode: select most-recent file, show version panel, no countdown
+        setCliMode(false);
+        setFocus("picker");
+        setTab("recent");
+        const r = await api.getRecents(true);
+        if (r[0]?.path) {
+          setSelectedPath(r[0].path);
+        }
+        if (!cfg.has_prompted_file_assoc) setModal("firstrun");
       }
-      if (!cfg.has_prompted_file_assoc) setModal("firstrun");
+
       setReady(true);
-    })().catch((e) => setStatusMsg(String(e)));
+
+      // Size + show only after UI data is ready (avoids white/small flash)
+      try {
+        const win = getCurrentWindow();
+        await win.setSize(new LogicalSize(cfg.show_readme ? 1190 : 640, 700));
+        await win.show();
+        await win.setFocus();
+      } catch (e) {
+        console.error(e);
+      }
+    })().catch(async (e) => {
+      setStatusMsg(String(e));
+      setReady(true);
+      try {
+        await getCurrentWindow().show();
+      } catch {
+        /* ignore */
+      }
+    });
   }, [refreshLists]);
 
   useEffect(() => {
@@ -158,16 +209,36 @@ export default function App() {
     return () => unlisten?.();
   }, []);
 
+  const sessionRecents = useMemo(() => {
+    // Match original: pin active_manual (CLI / browse) to top of recents
+    if (!activeManual) return recents;
+    const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+    const target = norm(activeManual);
+    const list = [...recents];
+    const idx = list.findIndex((r) => norm(r.path) === target);
+    if (idx > 0) {
+      const [item] = list.splice(idx, 1);
+      list.unshift(item);
+    } else if (idx === -1) {
+      list.unshift({
+        path: activeManual,
+        source: "launcher",
+        last_opened: Date.now() / 1000,
+      });
+    }
+    return list;
+  }, [recents, activeManual]);
+
   const recentItems = useMemo(
     () =>
       buildRecentItems(
-        recents,
+        sessionRecents,
         meta,
         !!config?.collapse_versions,
         search,
         activeManual,
       ),
-    [recents, meta, config?.collapse_versions, search, activeManual],
+    [sessionRecents, meta, config?.collapse_versions, search, activeManual],
   );
 
   const templateItems = useMemo(
@@ -177,6 +248,17 @@ export default function App() {
 
   const items: ListItem[] = tab === "recent" ? recentItems : templateItems;
 
+  const nameColCh = useMemo(() => {
+    const longest = items.reduce((m, i) => Math.max(m, i.displayName.length), 22);
+    return Math.min(Math.max(longest + 1, 18), 42);
+  }, [items]);
+
+  // Keep selected file row in view (keyboard nav, search filter, tab switch, load)
+  useEffect(() => {
+    if (!selectedPath || !selectedFileRef.current) return;
+    selectedFileRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedPath, items, tab, search, focus]);
+
   const versionKeys = useMemo(() => {
     const list = usePlayer ? discover.players : discover.versions;
     return list.map((v) => v.key);
@@ -185,15 +267,24 @@ export default function App() {
   const versionInstalled = useMemo(() => {
     if (!buildInfo) return true;
     if (selectedPath === DEFAULT_TEMPLATE) return versionKeys.length > 0;
-    const target = buildInfo;
-    if (usePlayer) {
-      const num = target.replace(/^Touch(Designer|Player)\./, "");
-      return discover.players.some((p) => p.key.includes(num));
-    }
-    return discover.versions.some((v) => v.key === target);
+    const target = versionNumeric(buildInfo);
+    const list = usePlayer ? discover.players : discover.versions;
+    return list.some((v) => versionNumeric(v.key) === target);
   }, [buildInfo, discover, usePlayer, selectedPath, versionKeys.length]);
 
-  // Analyze selected file
+  const applyBuildSelection = useCallback(
+    (info: string | null, player: boolean) => {
+      if (!info) {
+        if (versionKeys.length) setSelectedVersion(versionKeys[versionKeys.length - 1]);
+        return;
+      }
+      const keys = (player ? discover.players : discover.versions).map((v) => v.key);
+      setSelectedVersion(findMatchingVersionKey(info, keys, player));
+    },
+    [discover.players, discover.versions, versionKeys],
+  );
+
+  // Analyze selected file (cached; TouchPlayer toggle does not re-inspect)
   useEffect(() => {
     if (!selectedPath || selectedPath === DEFAULT_TEMPLATE) {
       setBuildInfo(null);
@@ -209,33 +300,40 @@ export default function App() {
       return;
     }
 
+    const cached = versionCache.current.get(selectedPath);
+    if (cached !== undefined) {
+      setBuildInfo(cached);
+      setAnalyzing(false);
+      applyBuildSelection(cached, usePlayer);
+      return;
+    }
+
     const id = ++analysisId.current;
     setAnalyzing(true);
     const t = window.setTimeout(async () => {
       try {
         const info = await api.inspectToe(selectedPath);
         if (analysisId.current !== id) return;
+        versionCache.current.set(selectedPath, info);
         setBuildInfo(info);
-        if (info && (await api.checkVersionInstalled(info, usePlayer))) {
-          setSelectedVersion(info.replace(/^TouchDesigner\./, usePlayer ? "TouchPlayer." : "TouchDesigner."));
-          // Prefer exact key from list
-          const keys = usePlayer ? discover.players : discover.versions;
-          const exact = keys.find((k) => {
-            const a = k.key.replace(/^Touch(Designer|Player)\./, "");
-            const b = info.replace(/^Touch(Designer|Player)\./, "");
-            return a === b;
-          });
-          setSelectedVersion(exact?.key ?? info);
-        } else if (versionKeys.length) {
-          // best match: newest
-          setSelectedVersion(versionKeys[versionKeys.length - 1]);
-        }
+        applyBuildSelection(info, usePlayer);
       } finally {
         if (analysisId.current === id) setAnalyzing(false);
       }
-    }, 180);
+    }, 40);
     return () => clearTimeout(t);
-  }, [selectedPath, usePlayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Remap selected version when TouchPlayer toggles — no toeexpand
+  useEffect(() => {
+    if (!selectedPath || selectedPath === DEFAULT_TEMPLATE) {
+      if (selectedPath === DEFAULT_TEMPLATE && versionKeys.length) {
+        setSelectedVersion(versionKeys[versionKeys.length - 1]);
+      }
+      return;
+    }
+    applyBuildSelection(buildInfo, usePlayer);
+  }, [usePlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // README
   useEffect(() => {
@@ -244,11 +342,16 @@ export default function App() {
       setReadmeEdit(false);
       return;
     }
+    let cancelled = false;
     api.getReadme(selectedPath).then((r) => {
+      if (cancelled) return;
       setReadme(r);
       setReadmeDraft(r.content);
       setReadmeEdit(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPath, config?.show_readme]);
 
   // Countdown for CLI mode
@@ -304,14 +407,23 @@ export default function App() {
   };
 
   const updatePref = async (patch: Partial<AppConfig>) => {
+    // Resize window before React reflow when toggling info panel
+    if ("show_readme" in patch && patch.show_readme !== config?.show_readme) {
+      try {
+        await getCurrentWindow().setSize(
+          new LogicalSize(patch.show_readme ? 1190 : 640, 700),
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
     const next = await api.updatePrefs(patch);
     setConfig(next);
-    if (
-      "show_icons" in patch ||
-      "collapse_versions" in patch ||
-      "show_readme" in patch
-    ) {
-      await refreshLists(next);
+
+    // Only reload icons when enabling them; collapse/readme are local UI
+    if (patch.show_icons === true) {
+      void refreshLists(next, { rediscover: false });
     }
   };
 
@@ -321,11 +433,15 @@ export default function App() {
     if (!files.length) return;
     if (tab === "templates") {
       for (const f of files) await api.addTemplate(f);
-      await refreshLists();
+      await refreshLists(undefined, { rediscover: false });
       setSelectedPath(files[0]);
     } else {
       setSelectedPath(files[0]);
       setActiveManual(files[0]);
+      // warm meta for browsed file without full refresh
+      void api.getFileMeta(files[0]).then((m) => {
+        setMeta((prev) => ({ ...prev, [files[0]]: { exists: m.exists, mtime: m.mtime } }));
+      });
     }
   };
 
@@ -341,7 +457,7 @@ export default function App() {
       }
       await api.removeRecent(path);
     }
-    await refreshLists();
+    await refreshLists(undefined, { rediscover: false });
     if (selectedPath === path) setSelectedPath(null);
   };
 
@@ -521,7 +637,7 @@ export default function App() {
 
       if (meta && (e.key === "ArrowUp" || e.key === "ArrowDown") && tab === "templates" && selectedPath && selectedPath !== DEFAULT_TEMPLATE) {
         e.preventDefault();
-        void api.moveTemplate(selectedPath, e.key === "ArrowUp" ? "up" : "down").then(() => refreshLists());
+        void api.moveTemplate(selectedPath, e.key === "ArrowUp" ? "up" : "down").then(() => refreshLists(undefined, { rediscover: false }));
         return;
       }
 
@@ -553,15 +669,6 @@ export default function App() {
     };
   });
 
-  // Resize window when readme toggled
-  useEffect(() => {
-    if (!ready) return;
-    const win = getCurrentWindow();
-    void win
-      .setSize(new LogicalSize(config?.show_readme ? 1190 : 640, 700))
-      .catch(() => undefined);
-  }, [config?.show_readme, ready]);
-
   if (!ready || !config) {
     return (
       <div className="app">
@@ -571,7 +678,9 @@ export default function App() {
   }
 
   const launchLabel = (() => {
-    if (countdown !== null && countdown > 0) return `Launching in ${countdown}…`;
+    if (countdown !== null && countdown > 0) {
+      return `Open with selected version in ${countdown} seconds`;
+    }
     if (!selectedPath) return "Select a file to launch";
     if (analyzing) return "Analyzing file…";
     if (selectedPath === DEFAULT_TEMPLATE)
@@ -626,7 +735,7 @@ export default function App() {
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search…"
+              placeholder="Search… (* ?)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onBlur={() => {
@@ -676,73 +785,101 @@ export default function App() {
 
       <div className="content">
         <div className="left-col">
-          <div className="panel file-list">
+          <div
+            className={`panel file-list ${config.show_icons ? "with-icons" : ""}`}
+            style={{ ["--name-ch" as string]: String(nameColCh) }}
+          >
             {items.length === 0 ? (
               <div className="empty">No files yet — Browse to add a project.</div>
             ) : (
-              items.map((item) => (
-                <div
-                  key={item.path}
-                  className={[
-                    "file-row",
-                    item.path === selectedPath ? "selected" : "",
-                    item.path === selectedPath && focus === "versions" ? "focus-version" : "",
-                    item.missing ? "missing" : "",
-                    item.source === "active"
-                      ? "source-active"
-                      : item.source === "td"
-                        ? "source-td"
-                        : item.source === "launcher"
-                          ? "source-launcher"
-                          : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => selectItem(item)}
-                  onDoubleClick={() => {
-                    if (!item.missing) void doLaunch(true);
-                  }}
-                >
-                  {config.show_icons && (
-                    icons[item.path] ? (
-                      <img className="icon" src={icons[item.path]} alt="" />
-                    ) : (
-                      <div className="icon placeholder">TD</div>
-                    )
-                  )}
-                  <div className="meta">
-                    <div className="name">
+              items.map((item) => {
+                const canRemove =
+                  !item.isDefault &&
+                  !(item.source === "td" && platform !== "windows");
+                return (
+                  <div
+                    key={item.path}
+                    ref={item.path === selectedPath ? selectedFileRef : undefined}
+                    className={[
+                      "file-row",
+                      item.path === selectedPath ? "selected" : "",
+                      item.path === selectedPath && focus === "versions" ? "focus-version" : "",
+                      item.missing ? "missing" : "",
+                      item.source === "active"
+                        ? "source-active"
+                        : item.source === "td"
+                          ? "source-td"
+                          : item.source === "launcher"
+                            ? "source-launcher"
+                            : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={() => selectItem(item)}
+                    onDoubleClick={() => {
+                      if (!item.missing) void doLaunch(true);
+                    }}
+                    title={item.isDefault ? "Launch TD with default startup" : item.path}
+                  >
+                    {config.show_icons && (
+                      icons[item.path] ? (
+                        <img className="icon" src={icons[item.path]} alt="" />
+                      ) : (
+                        <div className="icon placeholder">TD</div>
+                      )
+                    )}
+                    <span className="col-name">
                       {item.displayName}
                       {item.missing ? " (missing)" : ""}
-                    </div>
-                    <div className="sub">
-                      {item.isDefault
-                        ? "Launch TD with default startup"
-                        : item.mtime || item.path}
-                    </div>
-                  </div>
-                  {!item.isDefault && (
-                    <div className="row-actions">
-                      {tab === "templates" && (
+                    </span>
+                    <span className="col-actions" onClick={(e) => e.stopPropagation()}>
+                      {!item.isDefault && tab === "templates" && (
                         <>
-                          <button className="ghost small" title="Move up" onClick={(e) => { e.stopPropagation(); void api.moveTemplate(item.path, "up").then(() => refreshLists()); }}>▲</button>
-                          <button className="ghost small" title="Move down" onClick={(e) => { e.stopPropagation(); void api.moveTemplate(item.path, "down").then(() => refreshLists()); }}>▼</button>
+                          <button
+                            className="ghost small"
+                            title="Move up"
+                            onClick={() =>
+                              void api
+                                .moveTemplate(item.path, "up")
+                                .then(() => refreshLists(undefined, { rediscover: false }))
+                            }
+                          >
+                            ▲
+                          </button>
+                          <button
+                            className="ghost small"
+                            title="Move down"
+                            onClick={() =>
+                              void api
+                                .moveTemplate(item.path, "down")
+                                .then(() => refreshLists(undefined, { rediscover: false }))
+                            }
+                          >
+                            ▼
+                          </button>
                         </>
                       )}
-                      <button
-                        className="ghost small"
-                        title="Remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void onRemove(item.path);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
+                      {canRemove && (
+                        <button
+                          className="ghost small"
+                          title="Remove"
+                          onClick={() => void onRemove(item.path)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                    <span className="col-date">
+                      {item.isDefault ? "" : item.missing ? "" : item.mtime || ""}
+                    </span>
+                    <span className="col-path">
+                      {item.isDefault
+                        ? "Opens TD with default startup"
+                        : item.path}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -810,6 +947,7 @@ export default function App() {
                   selected={selectedVersion}
                   focus={focus}
                   best={buildInfo}
+                  layoutKey={versionInstalled ? "ok" : "missing"}
                   onSelect={setSelectedVersion}
                 />
               </>
@@ -833,9 +971,17 @@ export default function App() {
                 : readme.path
                   ? basename(readme.path)
                   : "No README.md — edit to create one"}
-              {readme.summary ? ` — ${readme.summary}` : ""}
+              {readme.summary ? ` — ${plainSummary(readme.summary)}` : ""}
             </div>
-            <div className="readme-body" onDoubleClick={() => selectedPath && selectedPath !== DEFAULT_TEMPLATE && setReadmeEdit(true)}>
+            <div
+              className={`readme-body ${readmeEdit ? "is-editing" : "is-viewing"}`}
+              onDoubleClick={() =>
+                selectedPath &&
+                selectedPath !== DEFAULT_TEMPLATE &&
+                !readmeEdit &&
+                setReadmeEdit(true)
+              }
+            >
               {readmeEdit ? (
                 <textarea
                   value={readmeDraft}
@@ -847,7 +993,7 @@ export default function App() {
                   <ReactMarkdown>{readme.content}</ReactMarkdown>
                 </div>
               ) : (
-                <span className="hint"> </span>
+                <span className="hint">Double-click or press Edit to add a README</span>
               )}
             </div>
             <div className="readme-footer">
@@ -918,7 +1064,7 @@ export default function App() {
             <button
               onClick={async () => {
                 const n = await api.clearMissing();
-                await refreshLists();
+                await refreshLists(undefined, { rediscover: false });
                 setStatusMsg(`Removed ${n} missing entries`);
               }}
             >
@@ -964,6 +1110,7 @@ export default function App() {
                   cat: "Search",
                   bindings: [
                     [`${mod}+F`, "Open / close search"],
+                    ["* / ?", "Wildcards (* any, ? one char)"],
                     ["Esc", "Clear search and close"],
                     ["Enter", "Close search (keep filter)"],
                     ["Up / Down", "Navigate filtered list"],
@@ -1029,10 +1176,21 @@ export default function App() {
               : "Auto-generates project icons from /perform when you save. Not needed for recent files."}
           </p>
           <p className="help-tip">
-            Add <code>TDLauncherPlusUtility.tox</code> to your default startup file.
+            Download{" "}
+            <button
+              type="button"
+              className="linkish"
+              onClick={() => void api.openUrl(UTILITY_TOX_URL)}
+            >
+              TDLauncherPlusUtility.tox
+            </button>{" "}
+            from Releases and add it to your default startup file.
           </p>
 
           <div className="actions">
+            <button onClick={() => void api.openUrl(UTILITY_TOX_URL)}>
+              Download Utility TOX
+            </button>
             <button className="primary" onClick={() => setModal(null)}>
               Close
             </button>
@@ -1084,7 +1242,15 @@ export default function App() {
             </p>
           )}
           <p>
-            Optional: add <code>TDLauncherPlusUtility.tox</code> to your startup file for icons
+            Optional: add{" "}
+            <button
+              type="button"
+              className="linkish"
+              onClick={() => void api.openUrl(UTILITY_TOX_URL)}
+            >
+              TDLauncherPlusUtility.tox
+            </button>{" "}
+            to your startup file for icons
             {isMac ? " and recent-file sync" : ""}.
           </p>
           <div className="actions">
@@ -1113,7 +1279,7 @@ export default function App() {
               className="primary"
               onClick={async () => {
                 await api.clearRecents();
-                await refreshLists();
+                await refreshLists(undefined, { rediscover: false });
                 setSelectedPath(null);
                 setModal(null);
               }}
@@ -1170,32 +1336,60 @@ export default function App() {
   );
 }
 
+function scrollSelectedIntoList(el: HTMLElement) {
+  const parent = el.parentElement;
+  if (!parent) return;
+  const pRect = parent.getBoundingClientRect();
+  const cRect = el.getBoundingClientRect();
+  if (cRect.top < pRect.top) {
+    parent.scrollTop -= pRect.top - cRect.top;
+  } else if (cRect.bottom > pRect.bottom) {
+    parent.scrollTop += cRect.bottom - pRect.bottom;
+  }
+}
+
 function VersionList({
   keys,
   selected,
   focus,
   best,
+  layoutKey,
   onSelect,
 }: {
   keys: string[];
   selected: string | null;
   focus: FocusArea;
   best?: string | null;
+  /** Changes when download box appears/disappears so we re-scroll after layout. */
+  layoutKey?: string;
   onSelect: (k: string) => void;
 }) {
+  const selectedRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!selected || !selectedRef.current) return;
+    const el = selectedRef.current;
+    scrollSelectedIntoList(el);
+    // Download box / flex height can settle a frame later
+    const id = requestAnimationFrame(() => scrollSelectedIntoList(el));
+    return () => cancelAnimationFrame(id);
+  }, [selected, keys, focus, layoutKey]);
+
   if (!keys.length) return <div className="hint">No versions found!</div>;
   const bestNum = best?.replace(/^Touch(Designer|Player)\./, "");
   return (
     <div className="version-list">
       {keys.map((k) => {
         const num = k.replace(/^Touch(Designer|Player)\./, "");
+        const isSelected = k === selected;
         return (
           <div
             key={k}
+            ref={isSelected ? selectedRef : undefined}
             className={[
               "version-item",
-              k === selected ? "selected" : "",
-              k === selected && focus === "versions" ? "focus-version" : "",
+              isSelected ? "selected" : "",
+              isSelected && focus === "versions" ? "focus-version" : "",
               bestNum && num === bestNum ? "best" : "",
             ]
               .filter(Boolean)

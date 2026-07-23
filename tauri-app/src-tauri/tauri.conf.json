@@ -20,7 +20,9 @@
         "minHeight": 520,
         "resizable": true,
         "fullscreen": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "visible": false,
+        "backgroundColor": [26, 26, 30, 255]
       }
     ],
     "security": {

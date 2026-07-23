@@ -61,6 +61,7 @@ pub fn run() {
             commands::check_version_installed,
             commands::rediscover_and_check,
             commands::get_file_meta_cmd,
+            commands::get_files_meta_cmd,
             commands::quit_app,
             commands::write_temp_html,
         ])

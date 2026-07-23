@@ -22,8 +22,12 @@ export function matchesSearch(path: string, filter: string): boolean {
   if (!filter.trim()) return true;
   const name = displayName(path).toLowerCase();
   const full = path.toLowerCase();
-  const q = filter.trim().toLowerCase();
+  let q = filter.trim().toLowerCase();
+
+  // Wildcard mode (* = any run, ? = any single char) — match original fnmatch behavior
   if (q.includes("*") || q.includes("?")) {
+    if (!q.startsWith("*")) q = `*${q}`;
+    if (!q.endsWith("*")) q = `${q}*`;
     const re = new RegExp(
       "^" +
         q
@@ -35,6 +39,7 @@ export function matchesSearch(path: string, filter: string): boolean {
     );
     return re.test(name) || re.test(full);
   }
+
   return name.includes(q) || full.includes(q);
 }
 
@@ -114,6 +119,51 @@ export function displayBuildInfo(build: string | null, usePlayer: boolean): stri
   return build;
 }
 
+export function versionNumeric(key: string): string {
+  return key.replace(/^Touch(Designer|Player)\./, "");
+}
+
+/** Parse `year.build[.branch]` for ordering; branch defaults to 0. */
+export function parseVersionParts(key: string): [number, number, number] {
+  const parts = versionNumeric(key).split(".");
+  const year = Number(parts[0]) || -1;
+  const build = Number(parts[1]) || -1;
+  const branch = Number(parts[2]) || 0;
+  return [year, build, branch];
+}
+
+function versionPartsLte(a: [number, number, number], b: [number, number, number]): boolean {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] < b[i]) return true;
+    if (a[i] > b[i]) return false;
+  }
+  return true;
+}
+
+/** Exact match, else closest older installed build (last key if all are older). */
+export function findMatchingVersionKey(
+  buildInfo: string,
+  keys: string[],
+  usePlayer: boolean,
+): string | null {
+  if (!keys.length) {
+    return usePlayer
+      ? buildInfo.replace(/^TouchDesigner\./, "TouchPlayer.")
+      : buildInfo;
+  }
+  const target = versionNumeric(buildInfo);
+  const exact = keys.find((k) => versionNumeric(k) === target);
+  if (exact) return exact;
+
+  const targetParts = parseVersionParts(buildInfo);
+  let best = keys[0];
+  for (const k of keys) {
+    if (versionPartsLte(parseVersionParts(k), targetParts)) best = k;
+    else break;
+  }
+  return best;
+}
+
 export function basename(path: string): string {
   return path.replace(/\\/g, "/").split("/").pop() || path;
 }
@@ -122,4 +172,12 @@ export function dirname(path: string): string {
   const norm = path.replace(/\\/g, "/");
   const i = norm.lastIndexOf("/");
   return i >= 0 ? path.slice(0, path.length - (norm.length - i)) : path;
+}
+
+/** Plain-text summary for status line (strip leftover markdown). */
+export function plainSummary(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_`~]/g, "")
+    .trim();
 }

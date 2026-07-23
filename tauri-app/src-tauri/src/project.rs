@@ -232,12 +232,34 @@ pub fn get_project_summary(project_path: &str) -> String {
         {
             continue;
         }
-        if line.len() > 250 {
-            return format!("{}...", &line[..247]);
+        let cleaned = strip_inline_markdown(line);
+        if cleaned.is_empty() {
+            continue;
         }
-        return line.to_string();
+        if cleaned.len() > 250 {
+            return format!("{}...", &cleaned[..247]);
+        }
+        return cleaned;
     }
     String::new()
+}
+
+fn strip_inline_markdown(s: &str) -> String {
+    let mut out = s.to_string();
+    // [text](url) -> text
+    if let Ok(re) = regex::Regex::new(r"\[([^\]]+)\]\([^)]+\)") {
+        out = re.replace_all(&out, "$1").to_string();
+    }
+    // bare URLs in angle brackets
+    if let Ok(re) = regex::Regex::new(r"<([^>]+)>") {
+        out = re.replace_all(&out, "$1").to_string();
+    }
+    out = out.replace("**", "").replace("__", "").replace('`', "");
+    out.trim().to_string()
+}
+
+pub fn get_files_meta(paths: &[String]) -> Vec<FileMeta> {
+    paths.iter().map(|p| get_file_meta(p)).collect()
 }
 
 pub fn get_readme_info(project_path: &str) -> ReadmeInfo {

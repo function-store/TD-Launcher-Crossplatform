@@ -80,7 +80,7 @@ class TDManager:
                 name, value, vtype = winreg.EnumValue(key, i)
                 if name.startswith('Path'):
                     paths[name] = value
-                elif re.match(r'^\d{4}\.\d+$', name):
+                elif re.match(r'^\d{4}\.\d+(?:\.\d+)?$', name):
                     versions.append(name)
 
             # Match each version to its install path
@@ -165,11 +165,14 @@ class TDManager:
                 logger.debug(f"Bundle version: {bundle_version}")
 
                 if bundle_version:
-                    version_parts = bundle_version.split('.')
+                    # Keep full year.build[.branch] from CFBundleVersion
+                    version_parts = [
+                        p for p in bundle_version.split('.')
+                        if p.isdigit()
+                    ]
                     if len(version_parts) >= 2:
-                        year = version_parts[0]
-                        build = version_parts[1] if len(version_parts) > 1 else "0"
-                        td_key = f"{product}.{year}.{build}"
+                        version_core = '.'.join(version_parts)
+                        td_key = f"{product}.{version_core}"
 
                         executable_path = os.path.join(app_path, "Contents", "MacOS", product)
 
@@ -190,9 +193,10 @@ class TDManager:
         return td_dict
 
     @staticmethod
-    def parse_version_string(version_str: str) -> Tuple[int, int]:
-        """Parse version string into (year, build) tuple.
-        Handles 'TouchDesigner.2025.32280', 'TouchPlayer.2025.32280', or just '2025.32280'.
+    def parse_version_string(version_str: str) -> Tuple[int, int, int]:
+        """Parse version string into (year, build, branch) tuple.
+        Branch defaults to 0 when absent.
+        Handles 'TouchDesigner.2025.32280', 'TouchPlayer.2026.21212.2', or just '2026.21212.2'.
         """
         try:
             # Remove product prefix if present
@@ -204,9 +208,10 @@ class TDManager:
             parts = version_str.split('.')
             year = int(parts[0]) if len(parts) > 0 else -1
             build = int(parts[1]) if len(parts) > 1 else -1
-            return (year, build)
+            branch = int(parts[2]) if len(parts) > 2 else 0
+            return (year, build, branch)
         except Exception:
-            return (-1, -1)
+            return (-1, -1, 0)
 
     # --- TouchDesigner accessors ---
 
@@ -216,12 +221,19 @@ class TDManager:
 
     def is_version_installed(self, version: str) -> bool:
         """Check if a specific version is installed."""
-        return version in self.versions
+        if version in self.versions:
+            return True
+        target = self.parse_version_string(version)
+        return any(self.parse_version_string(k) == target for k in self.versions)
 
     def get_executable(self, version: str) -> Optional[str]:
         """Get the executable path for a version."""
         if version in self.versions:
             return self.versions[version].get('executable')
+        target = self.parse_version_string(version)
+        for k, info in self.versions.items():
+            if self.parse_version_string(k) == target:
+                return info.get('executable')
         return None
 
     def get_app_path(self, version: str) -> Optional[str]:
@@ -358,6 +370,9 @@ class TDManager:
             product = split_options[0]
             year = split_options[1]
             build = split_options[2]
+            # Optional experimental/branch suffix: TouchDesigner.2026.21212.2
+            branch = split_options[3] if len(split_options) > 3 and split_options[3].isdigit() else None
+            version_core = f'{year}.{build}.{branch}' if branch else f'{year}.{build}'
 
             # Platform and architecture-specific file extension
             if platform.system() == 'Windows':
@@ -381,7 +396,7 @@ class TDManager:
                 url = f'https://download.derivative.ca/TouchDesigner099.{year}.{build}{extension}'
             else:
                 url_product = product if product == 'TouchPlayer' and platform.system() != 'Windows' else 'TouchDesigner'
-                url = f'https://download.derivative.ca/{url_product}.{year}.{build}{arch_suffix}{extension}'
+                url = f'https://download.derivative.ca/{url_product}.{version_core}{arch_suffix}{extension}'
 
             return url
 
