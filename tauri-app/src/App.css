@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme="classic"] {
   --bg: #1a1a1e;
   --bg-elevated: #222228;
   --bg-panel: #1e1e24;
@@ -11,14 +12,176 @@
   --text-muted: #5c5c68;
   --accent: #32ff00;
   --accent-soft: #c8ffc8;
+  --accent-btn: #1e4a1e;
+  --accent-btn-border: #2d7a2d;
+  --accent-btn-hover: #265826;
   --td-yellow: #ffffc8;
   --danger: #ff5032;
   --warn: #ff9620;
   --blue: #64a0ff;
   --player-bg: rgba(30, 50, 80, 0.45);
+  --scrollbar: #3a3a44;
+  --scrollbar-hover: #52525e;
+  --progress-from: #2d7a2d;
   --font: "Segoe UI", "SF Pro Text", system-ui, sans-serif;
   --mono: "Cascadia Code", "SF Mono", "Consolas", ui-monospace, monospace;
   --radius: 6px;
+}
+
+[data-theme="ocean"] {
+  --bg: #141a22;
+  --bg-elevated: #1a2330;
+  --bg-panel: #172029;
+  --bg-hover: #243040;
+  --bg-selected: rgba(50, 140, 220, 0.32);
+  --bg-selected-version: rgba(40, 170, 210, 0.34);
+  --border: #2a3a4c;
+  --text: #e6eef6;
+  --text-dim: #8a9aab;
+  --text-muted: #5c6c7c;
+  --accent: #4db8ff;
+  --accent-soft: #b8e0ff;
+  --accent-btn: #1a3a55;
+  --accent-btn-border: #2a6a9a;
+  --accent-btn-hover: #224a68;
+  --td-yellow: #ffe8a8;
+  --danger: #ff6a55;
+  --warn: #ffb040;
+  --blue: #6ec0ff;
+  --player-bg: rgba(25, 55, 90, 0.5);
+  --scrollbar: #334455;
+  --scrollbar-hover: #4a5f75;
+  --progress-from: #2a6a9a;
+}
+
+[data-theme="amber"] {
+  --bg: #1c1914;
+  --bg-elevated: #262218;
+  --bg-panel: #211d16;
+  --bg-hover: #322c20;
+  --bg-selected: rgba(210, 150, 40, 0.28);
+  --bg-selected-version: rgba(200, 140, 30, 0.34);
+  --border: #3c3428;
+  --text: #f2ebe0;
+  --text-dim: #a89880;
+  --text-muted: #6e6454;
+  --accent: #ffb020;
+  --accent-soft: #ffe0a0;
+  --accent-btn: #4a3510;
+  --accent-btn-border: #8a6020;
+  --accent-btn-hover: #5c4418;
+  --td-yellow: #fff0c0;
+  --danger: #ff6040;
+  --warn: #ffc040;
+  --blue: #70a8ff;
+  --player-bg: rgba(60, 45, 20, 0.5);
+  --scrollbar: #403828;
+  --scrollbar-hover: #5a4e38;
+  --progress-from: #8a6020;
+}
+
+[data-theme="ember"] {
+  --bg: #1c1414;
+  --bg-elevated: #261a1a;
+  --bg-panel: #211717;
+  --bg-hover: #322222;
+  --bg-selected: rgba(220, 90, 60, 0.28);
+  --bg-selected-version: rgba(210, 80, 50, 0.34);
+  --border: #3c2a2a;
+  --text: #f2e8e6;
+  --text-dim: #a89088;
+  --text-muted: #6e5854;
+  --accent: #ff6b4a;
+  --accent-soft: #ffc8b8;
+  --accent-btn: #4a2018;
+  --accent-btn-border: #8a4030;
+  --accent-btn-hover: #5c2a20;
+  --td-yellow: #ffe0b0;
+  --danger: #ff5040;
+  --warn: #ff9a40;
+  --blue: #70a8ff;
+  --player-bg: rgba(70, 30, 30, 0.45);
+  --scrollbar: #403030;
+  --scrollbar-hover: #5a4242;
+  --progress-from: #8a4030;
+}
+
+[data-theme="frost"] {
+  --bg: #16191c;
+  --bg-elevated: #1e2328;
+  --bg-panel: #1a1e22;
+  --bg-hover: #2a3138;
+  --bg-selected: rgba(100, 180, 170, 0.26);
+  --bg-selected-version: rgba(90, 190, 175, 0.32);
+  --border: #303840;
+  --text: #e8eef0;
+  --text-dim: #8a969c;
+  --text-muted: #5c666c;
+  --accent: #8ad4c8;
+  --accent-soft: #d0f0ea;
+  --accent-btn: #1e3a38;
+  --accent-btn-border: #3a7a70;
+  --accent-btn-hover: #284e4a;
+  --td-yellow: #fff0c8;
+  --danger: #ff6a55;
+  --warn: #ffb040;
+  --blue: #70b8e8;
+  --player-bg: rgba(30, 50, 55, 0.5);
+  --scrollbar: #384048;
+  --scrollbar-hover: #505860;
+  --progress-from: #3a7a70;
+}
+
+[data-theme="violet"] {
+  --bg: #18161f;
+  --bg-elevated: #221f2c;
+  --bg-panel: #1d1a26;
+  --bg-hover: #2e2a3c;
+  --bg-selected: rgba(160, 100, 230, 0.28);
+  --bg-selected-version: rgba(170, 110, 240, 0.34);
+  --border: #3a3450;
+  --text: #eee8f8;
+  --text-dim: #9a90b0;
+  --text-muted: #6a6280;
+  --accent: #c084fc;
+  --accent-soft: #e4d0ff;
+  --accent-btn: #3a2460;
+  --accent-btn-border: #7a4ab8;
+  --accent-btn-hover: #4a3080;
+  --td-yellow: #ffe8b8;
+  --danger: #ff6a70;
+  --warn: #ffb040;
+  --blue: #88b0ff;
+  --player-bg: rgba(50, 35, 80, 0.5);
+  --scrollbar: #3c3650;
+  --scrollbar-hover: #564e70;
+  --progress-from: #7a4ab8;
+}
+
+[data-theme="mono"] {
+  --bg: #1e1e1e;
+  --bg-elevated: #252526;
+  --bg-panel: #222222;
+  --bg-hover: #2a2d2e;
+  --bg-selected: rgba(38, 79, 120, 0.55);
+  --bg-selected-version: rgba(14, 99, 156, 0.45);
+  --border: #3c3c3c;
+  --text: #cccccc;
+  --text-dim: #9d9d9d;
+  --text-muted: #6e6e6e;
+  --accent: #cccccc;
+  --accent-soft: #e0e0e0;
+  --accent-btn: #0e639c;
+  --accent-btn-border: #1177bb;
+  --accent-btn-hover: #1177bb;
+  --td-yellow: #dcdcaa;
+  --danger: #f48771;
+  --warn: #cca700;
+  --blue: #569cd6;
+  --player-bg: rgba(30, 40, 55, 0.55);
+  --scrollbar: #424242;
+  --scrollbar-hover: #4f4f4f;
+  --progress-from: #0e639c;
 }
 
 * {
@@ -28,7 +191,7 @@
 /* Dark, quiet scrollbars (WebView2 / Chromium + Firefox) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3a3a44 transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -41,14 +204,14 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #3a3a44;
+  background: var(--scrollbar);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #52525e;
+  background: var(--scrollbar-hover);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -89,7 +252,7 @@ button {
 
 button:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: #444;
+  border-color: color-mix(in srgb, var(--border) 70%, var(--text));
 }
 
 button:disabled {
@@ -98,14 +261,14 @@ button:disabled {
 }
 
 button.primary {
-  background: #1e4a1e;
-  border-color: #2d7a2d;
+  background: var(--accent-btn);
+  border-color: var(--accent-btn-border);
   color: var(--accent);
   font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: #265826;
+  background: var(--accent-btn-hover);
 }
 
 button.ghost {
@@ -120,7 +283,8 @@ button.small {
 
 input[type="text"],
 input[type="number"],
-textarea {
+textarea,
+select {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -128,8 +292,13 @@ textarea {
   outline: none;
 }
 
+select {
+  cursor: pointer;
+}
+
 input[type="text"]:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #4a7ab0;
 }
 
@@ -466,7 +635,7 @@ textarea:focus {
 .progress > span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #2d7a2d, var(--accent));
+  background: linear-gradient(90deg, var(--progress-from), var(--accent));
   transition: width 0.15s ease;
 }
 
@@ -777,7 +946,7 @@ button.linkish:hover {
   padding: 1px 5px;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: #111;
+  background: var(--bg);
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text);

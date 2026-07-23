@@ -38,6 +38,7 @@ export interface AppConfig {
   collapse_versions: boolean;
   show_full_history: boolean;
   has_prompted_file_assoc: boolean;
+  theme: string;
 }
 
 export interface PrefsUpdate {
@@ -48,7 +49,20 @@ export interface PrefsUpdate {
   collapse_versions?: boolean;
   show_full_history?: boolean;
   has_prompted_file_assoc?: boolean;
+  theme?: string;
 }
+
+export type ThemeId = "classic" | "ocean" | "amber" | "ember" | "frost" | "violet" | "mono";
+
+export const THEMES: { id: ThemeId; label: string }[] = [
+  { id: "classic", label: "Classic" },
+  { id: "ocean", label: "Ocean" },
+  { id: "amber", label: "Amber" },
+  { id: "ember", label: "Ember" },
+  { id: "frost", label: "Frost" },
+  { id: "violet", label: "Violet" },
+  { id: "mono", label: "Mono" },
+];
 
 export interface FileMeta {
   exists: boolean;

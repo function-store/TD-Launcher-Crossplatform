@@ -81,6 +81,8 @@ pub struct AppConfig {
     pub show_full_history: bool,
     #[serde(default)]
     pub has_prompted_file_assoc: bool,
+    #[serde(default = "default_theme")]
+    pub theme: String,
     /// Legacy field — migrated on load
     #[serde(default, skip_serializing)]
     pub recent_files: Option<Vec<PathEntry>>,
@@ -94,6 +96,16 @@ fn default_max_recent() -> u32 {
 }
 fn default_true() -> bool {
     true
+}
+fn default_theme() -> String {
+    "classic".into()
+}
+
+fn normalize_theme(theme: &str) -> String {
+    match theme {
+        "ocean" | "amber" | "ember" | "frost" | "violet" | "mono" => theme.to_string(),
+        _ => "classic".into(),
+    }
 }
 
 impl Default for AppConfig {
@@ -111,6 +123,7 @@ impl Default for AppConfig {
             collapse_versions: false,
             show_full_history: true,
             has_prompted_file_assoc: false,
+            theme: default_theme(),
             recent_files: None,
         }
     }
@@ -125,6 +138,7 @@ pub struct PrefsUpdate {
     pub collapse_versions: Option<bool>,
     pub show_full_history: Option<bool>,
     pub has_prompted_file_assoc: Option<bool>,
+    pub theme: Option<String>,
 }
 
 pub struct ConfigManager {
@@ -234,6 +248,9 @@ impl ConfigManager {
         }
         if let Some(v) = prefs.has_prompted_file_assoc {
             self.config.has_prompted_file_assoc = v;
+        }
+        if let Some(v) = prefs.theme {
+            self.config.theme = normalize_theme(&v);
         }
         self.save()
     }

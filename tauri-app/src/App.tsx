@@ -11,8 +11,9 @@ import type {
   ListItem,
   RecentEntry,
   TabId,
+  ThemeId,
 } from "./types";
-import { DEFAULT_TEMPLATE } from "./types";
+import { DEFAULT_TEMPLATE, THEMES } from "./types";
 import {
   basename,
   buildRecentItems,
@@ -29,6 +30,11 @@ type Modal = "settings" | "help" | "about" | "firstrun" | "install" | "clear" | 
 const COUNTDOWN_SECS = 5; // matches original _update_countdown (hardcoded 5s)
 const UTILITY_TOX_URL =
   "https://github.com/function-store/TD-Launcher-Plus/releases/latest/download/TDLauncherPlusUtility.tox";
+
+function applyTheme(theme: string | undefined | null) {
+  const id = THEMES.some((t) => t.id === theme) ? (theme as ThemeId) : "classic";
+  document.documentElement.setAttribute("data-theme", id);
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -76,6 +82,10 @@ export default function App() {
   useEffect(() => {
     iconsRef.current = icons;
   }, [icons]);
+
+  useEffect(() => {
+    applyTheme(config?.theme);
+  }, [config?.theme]);
 
   const refreshLists = useCallback(async (cfg?: AppConfig, opts?: { rediscover?: boolean }) => {
     const c = cfg ?? (await api.getConfig());
@@ -1042,6 +1052,19 @@ export default function App() {
 
       {modal === "settings" && (
         <Modal title="Settings" onClose={() => setModal(null)}>
+          <div className="field">
+            <label>Color theme</label>
+            <select
+              value={config.theme || "classic"}
+              onChange={(e) => void updatePref({ theme: e.target.value })}
+            >
+              {THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <label>Max recent files (5–200)</label>
             <input
