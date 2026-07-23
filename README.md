@@ -1,5 +1,8 @@
 # TD Launcher Plus
-A focused project dashboard for TouchDesigner. Launch .toe files with the correct version automatically, open recent project files, or custom template projects (startup files). With optional icon preview, and project documentation viewer and editor.
+
+A focused project dashboard for TouchDesigner. Launch `.toe` files with the correct version automatically, open recent project files, or custom template projects (startup files). With optional icon preview, and project documentation viewer and editor.
+
+**v3 is a full rewrite** as a [Tauri](https://tauri.app/) desktop app (Rust backend + React/TypeScript UI). Config and the companion Utility TOX stay compatible with previous versions.
 
 This repo is based on [TD Launcher by EnviralDesign](https://github.com/enviraldesign/TD-Launcher) (MIT License).
 
@@ -14,12 +17,36 @@ This repo is based on [TD Launcher by EnviralDesign](https://github.com/envirald
 - **Visual Previews**: Automatic thumbnail generation and custom icon support for a rich browsing experience.
 - **Search & Filter**: Quickly find projects by typing in the search bar — filters both Recent Files and Templates in real time.
 - **Keyboard Navigation**: Full keyboard navigation with tab memory for fast and fluid workflow.
-- **Native Experience**: Fully optimized for macOS (Apple Silicon/Intel) and Windows with a clean, responsive Dear PyGui interface.
+- **Native Experience**: Tauri app for macOS (Apple Silicon/Intel) and Windows with a modern React UI.
 - **TouchPlayer Support**: Launch projects in TouchPlayer instead of TouchDesigner with a single toggle.
 - **Missing File Detection**: Files that no longer exist on disk are grayed out and labeled "(missing)" — with a one-click cleanup in Settings.
 - **In-App Help**: Built-in help modal (**Help** button) with keyboard shortcut reference and utility TOX info.
 - **Native Recent Files**: On Windows, reads recent files directly from the Registry. On macOS, use the companion utility TOX to sync recents.
 - **Companion Utility TOX**: Syncs recent files on macOS and auto-generates project thumbnails on all platforms.
+
+---
+
+## Development (Tauri v3)
+
+Requirements: **Node.js 20+**, **Rust** (stable), platform webview (WebView2 on Windows).
+
+```bash
+cd tauri-app
+npm install
+npm run tauri:dev      # hot-reload UI + Rust
+npm run tauri:build    # production installers
+```
+
+App source lives in `tauri-app/`:
+- `src/` — React + TypeScript UI
+- `src-tauri/` — Rust commands (TD discovery, config, launch, download)
+- `src-tauri/resources/toeexpand/` — Windows toeexpand bundle
+
+Config path (unchanged, TOX-compatible):
+- Windows: `%APPDATA%\TD Launcher Plus\config.json`
+- macOS/Linux: `~/.config/td-launcher/config.json`
+
+The previous Python/DearPyGui sources (`td_launcher.py`, etc.) remain in the repo for reference during the transition.
 
 ---
 
